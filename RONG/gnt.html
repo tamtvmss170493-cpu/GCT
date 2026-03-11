@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GNT — Tài xế Xe Gấp Container</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700;900&display=swap');
+    body { background:#020617; color:white; font-family:Inter,system-ui; margin:0; height:100vh; overflow:hidden; }
+    .font-tech{font-family:Orbitron,system-ui;}
+    .chip{border:1px solid rgba(148,163,184,.25); background:rgba(15,23,42,.8); padding:.35rem .6rem; border-radius:999px; font-size:11px;}
+    .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;max-width:96vw;width:420px}
+    .toast-card{background:rgba(15,23,42,.92);border:1px solid rgba(249,115,22,.35);box-shadow:0 10px 30px rgba(0,0,0,.45);border-radius:16px;padding:12px 12px}
+    .map-wrap{position:relative;border-radius:18px;overflow:hidden;border:1px solid rgba(51,65,85,.8);background:radial-gradient(1000px 450px at 20% 10%, rgba(249,115,22,.12), transparent), #020617;}
+    .zone{position:absolute;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-family:Orbitron;color:#fdba74;border:2px solid #f97316;background:rgba(2,6,23,.7);}
+    .zone.active{background:#22c55e;border-color:white;color:white;box-shadow:0 0 25px rgba(34,197,94,.55);transform:translate(-50%,-50%) scale(1.15);}
+    .dot-me{position:absolute;width:16px;height:16px;border-radius:50%;background:#3b82f6;border:2px solid white;box-shadow:0 0 14px rgba(59,130,246,.7);transform:translate(-50%,-50%);}
+    .dot-target{position:absolute;width:18px;height:18px;border-radius:50%;background:#22c55e;border:2px solid white;box-shadow:0 0 14px rgba(34,197,94,.7);transform:translate(-50%,-50%);}
+    .bottom-bar{position:fixed;left:0;right:0;bottom:0;background:rgba(2,6,23,.92);border-top:1px solid rgba(51,65,85,.8);padding:12px 14px;z-index:50}
+  </style>
+</head>
+<body>
+  <div class="toast hidden" id="toast">
+    <div class="toast-card">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-400/30 flex items-center justify-center">
+          <i class="fas fa-bell text-orange-300"></i>
+        </div>
+        <div class="flex-1">
+          <div class="font-tech text-[11px] text-orange-300 tracking-widest">GNT • THÔNG BÁO</div>
+          <div class="font-bold text-[14px] mt-1" id="toastTitle">Đang chờ PIMS...</div>
+          <div class="text-slate-300 text-[12px] mt-1 leading-snug" id="toastDesc">Khi điều độ hoàn thành trên PIMS, hệ thống sẽ hiện nút xác nhận.</div>
+          <div class="mt-3 flex gap-2" id="toastActions"></div>
+        </div>
+        <button class="text-slate-400 hover:text-white" onclick="hideToast()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <header class="px-4 py-3 border-b border-slate-800 bg-slate-950/60 backdrop-blur">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-orange-500/15 border border-orange-400/25 flex items-center justify-center">
+          <i class="fas fa-truck-ramp-box text-orange-300"></i>
+        </div>
+        <div>
+          <div class="font-tech tracking-widest text-[11px] text-orange-300">GNT</div>
+          <div class="font-black text-[15px] leading-tight">XE GẤP CONTAINER — HẠ / LẤY CONTAINER</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="chip" id="rtStatus">Realtime: OFF</span>
+        <button class="chip" onclick="configServer()">Cấu hình Server</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="h-[calc(100vh-66px)] overflow-auto pb-24">
+    <section class="max-w-3xl mx-auto px-4 py-4">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="font-tech text-[11px] text-slate-300 tracking-widest" id="stepLabel">B1+ • CHỜ NHẬN THÔNG BÁO</div>
+            <div class="text-[15px] font-black mt-1" id="jobTitle">Chờ điều độ hoàn thành trên PIMS...</div>
+            <div class="text-[12px] text-slate-400 mt-1" id="jobSub">Khi hoàn thành, hệ thống sẽ hiện thông tin & nút xác nhận.</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-400/25 flex items-center justify-center" id="stepIcon">
+            <i class="fas fa-hourglass-half text-orange-300"></i>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mt-4 text-[12px]">
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">XE CONTAINER</div>
+            <div class="font-black text-[14px]" id="jobPlate">—</div>
+          </div>
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">KHU HẠ</div>
+            <div class="font-black text-[14px]" id="jobZone">—</div>
+          </div>
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">SEAL</div>
+            <div class="font-bold" id="jobSeal">—</div>
+          </div>
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">HOTLINE</div>
+            <div class="font-bold" id="jobHotline">—</div>
+          </div>
+        </div>
+
+        <div class="mt-4 hidden" id="confirmWrap">
+          <div class="grid grid-cols-2 gap-2">
+            <button class="px-4 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-black" onclick="confirmJob()">XÁC NHẬN</button>
+            <button class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-black" onclick="setMyPosition()">SET VỊ TRÍ ĐANG ĐỨNG</button>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-2">
+            GNT chỉ được <b>set vị trí đang đứng</b>. Vị trí khu hạ (chấm xanh lá) do PIMS set.
+          </div>
+        </div>
+
+        <div class="mt-4 hidden" id="mapWrap">
+          <div class="map-wrap h-[380px] w-full" id="map">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full pointer-events-none">
+              <path id="routeLine" d="" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4" style="filter:drop-shadow(0 0 6px rgba(251,191,36,.7))"></path>
+            </svg>
+            <div id="zones"></div>
+            <div class="dot-me" id="meDot" style="left:12%;top:82%"></div>
+            <div class="dot-target hidden" id="targetDot" style="left:80%;top:25%"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <button class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-black" onclick="setMyPosition()"><i class="fas fa-location-arrow mr-2"></i>Định vị</button>
+            <button class="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-black" onclick="markDone()">HOÀN THÀNH</button>
+          </div>
+          <div class="mt-2">
+            <button class="w-full px-4 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 font-black" onclick="xongViec()">XONG VIỆC</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="bottom-bar">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-3 text-[12px]">
+      <div class="flex items-center gap-2">
+        <span class="chip" id="stateChip">STATE: WAITING</span>
+        <span class="chip" id="plateChip">PLATE: —</span>
+      </div>
+      <button class="chip" onclick="resetAll()">Reset</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { connectRealtime, getServerUrl, setServerUrl, ensureDeviceId } from './shared/realtime-client.js';
+
+    const ZONES = {
+      A: {x:18,y:20}, B:{x:30,y:44}, C:{x:52,y:40}, D:{x:70,y:78}, E:{x:84,y:28},
+      F: {x:20,y:62}, G:{x:32,y:64}, H:{x:28,y:86}, I:{x:66,y:56}, J:{x:80,y:56},
+      K: {x:10,y:72}, S:{x:30,y:34}, T:{x:54,y:26}, U:{x:88,y:44}
+    };
+
+    const $ = (id) => document.getElementById(id);
+    let rt = null;
+    let job = null;
+    let pimsDone = null;
+    let confirmed = false;
+    let myPosSet = false;
+    let plateBound = null;
+
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'vi-VN'; u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    }
+
+    function showToast({title, desc, actions = []}) {
+      $('toastTitle').textContent = title;
+      $('toastDesc').textContent = desc;
+      const wrap = $('toastActions');
+      wrap.innerHTML = '';
+      actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = a.kind === 'primary'
+          ? 'px-3 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 font-black text-[12px]'
+          : 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 font-black text-[12px]';
+        btn.textContent = a.label;
+        btn.onclick = a.onClick;
+        wrap.appendChild(btn);
+      });
+      $('toast').classList.remove('hidden');
+    }
+    window.hideToast = () => $('toast').classList.add('hidden');
+
+    function setStateChip(s) { $('stateChip').textContent = 'STATE: ' + s; }
+
+    function configServer() {
+      const cur = getServerUrl();
+      const url = prompt('Nhập URL realtime server (VD: https://your-server.com)', cur || '');
+      if (!url) return;
+      setServerUrl(url.trim().replace(/\/$/, ''));
+      location.reload();
+    }
+    window.configServer = configServer;
+
+    function bindPlate(plate) {
+      plateBound = plate;
+      $('plateChip').textContent = 'PLATE: ' + plate;
+      if (rt) rt.close();
+      rt = connectRealtime({
+        app: 'GNT',
+        plate,
+        onStatus: (s) => {
+          $('rtStatus').textContent = 'Realtime: ' + (s.status || 'OFF');
+          $('rtStatus').style.borderColor = (s.status === 'CONNECTED') ? 'rgba(34,197,94,.55)' : 'rgba(148,163,184,.25)';
+        },
+        onEvent: (ev) => handleEvent(ev)
+      });
+    }
+
+    function handleEvent(ev) {
+      if (!ev || !ev.type) return;
+      if (ev.type === 'JOB_CREATED' && ev.job) {
+        job = ev.job;
+        renderJob();
+        setStateChip('WAIT_PIMS_DONE');
+        $('stepLabel').textContent = 'B1+ • CHỜ HOÀN THÀNH (PIMS)';
+        $('jobTitle').textContent = 'Đang chờ PIMS hoàn thành seal...';
+        $('jobSub').textContent = 'Sau khi PIMS hoàn thành, hệ thống sẽ hiện nút xác nhận.';
+      }
+      if (ev.type === 'PIMS_DONE') {
+        pimsDone = ev;
+        renderJob();
+        $('confirmWrap').classList.remove('hidden');
+        $('stepLabel').textContent = 'B1+ • ĐÃ HOÀN THÀNH (PIMS)';
+        $('jobTitle').textContent = 'Đã có vị trí hạ. Vui lòng xác nhận.';
+        $('jobSub').textContent = 'Xác nhận để mở bản đồ điều hướng.';
+        setStateChip('WAIT_CONFIRM');
+        showToast({
+          title: 'Có lệnh mới',
+          desc: `Di chuyển đến khu ${pimsDone.targetZone}. Bấm XÁC NHẬN.`,
+          actions: [{ label: 'Xác nhận', kind: 'primary', onClick: () => confirmJob() }]
+        });
+        speak('Có lệnh mới từ điều độ. Vui lòng xác nhận.');
+      }
+    }
+
+    function renderJob() {
+      const plate = pimsDone?.plate || job?.plate || plateBound || '—';
+      $('jobPlate').textContent = plate;
+      $('jobZone').textContent = pimsDone?.targetZone ? ('KHU ' + pimsDone.targetZone) : (job?.targetZone ? ('KHU ' + job.targetZone) : '—');
+      $('jobSeal').textContent = pimsDone?.seals || (job?.seals ? job.seals.join('-') : '—');
+      $('jobHotline').textContent = job?.hotline || '—';
+    }
+
+    function buildZones(activeId) {
+      const wrap = $('zones');
+      wrap.innerHTML = '';
+      Object.entries(ZONES).forEach(([id, p]) => {
+        const d = document.createElement('div');
+        d.className = 'zone' + (id === activeId ? ' active' : '');
+        d.style.left = p.x + '%';
+        d.style.top = p.y + '%';
+        d.textContent = id;
+        wrap.appendChild(d);
+      });
+    }
+
+    function setTarget(zoneId) {
+      const p = ZONES[zoneId] || ZONES.A;
+      $('targetDot').classList.remove('hidden');
+      $('targetDot').style.left = p.x + '%';
+      $('targetDot').style.top = p.y + '%';
+      drawRoute();
+    }
+
+    function setMe(xPct, yPct) {
+      $('meDot').style.left = xPct + '%';
+      $('meDot').style.top = yPct + '%';
+      myPosSet = true;
+      drawRoute();
+    }
+
+    function drawRoute() {
+      const me = $('meDot').getBoundingClientRect();
+      const tg = $('targetDot').getBoundingClientRect();
+      const map = $('map').getBoundingClientRect();
+      const x1 = ((me.left + me.width/2) - map.left) / map.width * 100;
+      const y1 = ((me.top + me.height/2) - map.top) / map.height * 100;
+      const x2 = ((tg.left + tg.width/2) - map.left) / map.width * 100;
+      const y2 = ((tg.top + tg.height/2) - map.top) / map.height * 100;
+      $('routeLine').setAttribute('d', `M ${x1},${y1} L ${x2},${y2}`);
+    }
+
+    function setMyPosition() {
+      if (!navigator.geolocation) {
+        showToast({ title: 'Thiết bị không hỗ trợ GPS', desc: 'Bạn vẫn có thể dùng bản đồ minh hoạ.' });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const x = 10 + (Math.abs(longitude) % 1) * 80;
+          const y = 10 + (Math.abs(latitude) % 1) * 80;
+          setMe(x, y);
+        },
+        () => showToast({ title: 'Không lấy được vị trí', desc: 'Bật Location và thử lại.' }),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+    window.setMyPosition = setMyPosition;
+
+    function confirmJob() {
+      if (!pimsDone?.plate) return;
+      confirmed = true;
+      $('confirmWrap').classList.add('hidden');
+      $('mapWrap').classList.remove('hidden');
+      $('stepLabel').textContent = 'B2+ • BẢN ĐỒ DẪN ĐƯỜNG';
+      $('jobTitle').textContent = 'Di chuyển đến khu vực hạ container';
+      $('jobSub').textContent = 'Bắt buộc set vị trí đang đứng (GPS) để vẽ lộ trình.';
+      setStateChip('NAVIGATING');
+
+      buildZones(pimsDone.targetZone);
+      setTarget(pimsDone.targetZone);
+      setMyPosition();
+
+      rt?.publish({ type: 'GNT_CONFIRMED', plate: pimsDone.plate, targetZone: pimsDone.targetZone }).catch(() => {});
+      speak(`Xác nhận. Di chuyển đến khu ${pimsDone.targetZone}.`);
+      hideToast();
+    }
+    window.confirmJob = confirmJob;
+
+    function markDone() {
+      if (!confirmed || !pimsDone?.plate) return;
+      if (!myPosSet) {
+        alert('Vui lòng set vị trí đang đứng trước.');
+        return;
+      }
+      setStateChip('DONE_SENT');
+      $('stepLabel').textContent = 'B3+ • HOÀN THÀNH';
+      $('jobTitle').textContent = 'Đã báo hoàn thành hạ container';
+      $('jobSub').textContent = 'GXT sẽ được phép bấm KẾT THÚC.';
+      rt?.publish({ type: 'GNT_DONE', plate: pimsDone.plate, targetZone: pimsDone.targetZone }).catch(() => {});
+      speak('Đã hoàn thành. Gửi thông báo cho tài xế xe container.');
+      showToast({ title: 'Đã gửi hoàn thành', desc: 'Bấm XONG VIỆC để quay về màn hình chờ.' });
+    }
+    window.markDone = markDone;
+
+    function xongViec() {
+      // B4+ quay về chờ
+      confirmed = false;
+      myPosSet = false;
+      job = null;
+      pimsDone = null;
+      $('mapWrap').classList.add('hidden');
+      $('confirmWrap').classList.add('hidden');
+      $('stepLabel').textContent = 'B4+ • XONG VIỆC';
+      $('jobTitle').textContent = 'Sẵn sàng nhận thông báo mới...';
+      $('jobSub').textContent = 'Hệ thống sẽ tự hiện khi có lệnh.';
+      $('jobPlate').textContent = '—';
+      $('jobZone').textContent = '—';
+      $('jobSeal').textContent = '—';
+      setStateChip('WAITING');
+      hideToast();
+      speak('Đã xong việc. Sẵn sàng nhận lệnh mới.');
+    }
+    window.xongViec = xongViec;
+
+    function resetAll() { location.reload(); }
+    window.resetAll = resetAll;
+
+    // Boot: bind to last plate from localStorage (shared from PIMS/GXT onboarding)
+    const lastPlate = (localStorage.getItem('gxt_profile_v1') ? (JSON.parse(localStorage.getItem('gxt_profile_v1')).plate || '') : '') || '';
+    const plate = lastPlate.toUpperCase() || prompt('Nhập biển số xe container để theo dõi (VD: 51H-12345)', '') || '';
+    if (plate) bindPlate(plate.toUpperCase());
+    setStateChip('WAITING');
+    showToast({ title: 'Đang chờ PIMS', desc: 'Khi điều độ hoàn thành, GNT sẽ nhận lệnh.' });
+
+    // Create device id early (helps debugging)
+    ensureDeviceId('gnt');
+  </script>
+</body>
+</html>
+

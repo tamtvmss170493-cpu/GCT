@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hệ thống quản trị hạ tầng cảng biển</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar__brand">
+          <span class="sidebar__logo">⚓</span>
+          <span class="sidebar__title">PortAdmin</span>
+        </div>
+        <nav class="sidebar__nav">
+          <button class="nav-item nav-item--active" data-view="dashboard">
+            Tổng quan
+          </button>
+          <button class="nav-item" data-view="terminals">Bến bãi</button>
+          <button class="nav-item" data-view="ships">Tàu & Lịch trình</button>
+          <button class="nav-item" data-view="infrastructure">
+            Hạ tầng kỹ thuật
+          </button>
+          <button class="nav-item" data-view="alerts">Cảnh báo</button>
+          <button class="nav-item" data-view="reports">Báo cáo</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="main__header">
+          <div>
+            <h1>Hệ thống quản trị hạ tầng cảng biển</h1>
+            <p class="subtitle">Bảng điều khiển tổng quan trạng thái hoạt động hạ tầng.</p>
+          </div>
+          <div class="header__right">
+            <div class="status-indicator status-indicator--online">
+              <span class="dot"></span>
+              <span>Hệ thống ổn định</span>
+            </div>
+            <button id="themeToggle" class="btn btn--ghost">Chuyển chế độ nền</button>
+          </div>
+        </header>
+
+        <section class="cards-grid" aria-label="Truy cập nhanh">
+          <article class="card">
+            <h2>PIMS 13V2 PRO</h2>
+            <p class="metric-sub">Quét container/seal bằng camera (cần HTTPS hoặc localhost).</p>
+            <p style="margin-top: 12px">
+              <a class="btn btn--primary" href="./pims.html" style="display:inline-block;text-decoration:none;padding:10px 14px;border-radius:10px;background:#3b82f6;color:white;font-weight:800;">
+                Mở PIMS
+              </a>
+            </p>
+          </article>
+          <article class="card">
+            <h2>GXT (Tài xế xe container)</h2>
+            <p class="metric-sub">Nhận lệnh từ PIMS, xác nhận, bản đồ dẫn đường, check-out ERP.</p>
+            <p style="margin-top: 12px">
+              <a href="./gxt.html" style="display:inline-block;text-decoration:none;padding:10px 14px;border-radius:10px;background:#22c55e;color:white;font-weight:800;">
+                Mở GXT
+              </a>
+            </p>
+          </article>
+          <article class="card">
+            <h2>GNT (Tài xế xe gấp)</h2>
+            <p class="metric-sub">Nhận lệnh, xác nhận, điều hướng tới khu hạ, hoàn thành & xong việc.</p>
+            <p style="margin-top: 12px">
+              <a href="./gnt.html" style="display:inline-block;text-decoration:none;padding:10px 14px;border-radius:10px;background:#f97316;color:white;font-weight:800;">
+                Mở GNT
+              </a>
+            </p>
+          </article>
+        </section>
+
+        <section class="cards-grid" aria-label="Chỉ số nhanh">
+          <article class="card">
+            <h2>Công suất bến bãi</h2>
+            <p class="metric"><span id="berthUsage">72</span>%</p>
+            <p class="metric-sub">Dung lượng sử dụng hiện tại</p>
+          </article>
+
+          <article class="card">
+            <h2>Số tàu đang neo đậu</h2>
+            <p class="metric"><span id="shipCount">12</span></p>
+            <p class="metric-sub">Tàu đang xử lý trong cảng</p>
+          </article>
+
+          <article class="card">
+            <h2>Thiết bị quan trọng</h2>
+            <p class="metric"><span id="criticalAssets">3</span></p>
+            <p class="metric-sub">Thiết bị cần kiểm tra sớm</p>
+          </article>
+
+          <article class="card">
+            <h2>Độ trễ xử lý container</h2>
+            <p class="metric"><span id="containerDelay">18</span> phút</p>
+            <p class="metric-sub">Thời gian xử lý trung bình</p>
+          </article>
+        </section>
+
+        <section class="content-grid" aria-label="Chi tiết hoạt động">
+          <section class="panel">
+            <header class="panel__header">
+              <h2>Trạng thái bến bãi</h2>
+              <select class="select" id="terminalFilter">
+                <option value="all">Tất cả bến</option>
+                <option value="north">Khu Bắc</option>
+                <option value="south">Khu Nam</option>
+              </select>
+            </header>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Bến</th>
+                    <th>Công suất</th>
+                    <th>Trạng thái</th>
+                    <th>Thiết bị chính</th>
+                  </tr>
+                </thead>
+                <tbody id="terminalTableBody">
+                  <!-- Dữ liệu sẽ được JS gắn vào -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header class="panel__header">
+              <h2>Giám sát theo thời gian thực</h2>
+            </header>
+            <div class="realtime">
+              <div class="realtime__chart-placeholder">
+                <span>Biểu đồ tải hạ tầng (mô phỏng)</span>
+              </div>
+              <ul class="timeline" id="eventTimeline" aria-label="Dòng sự kiện">
+                <!-- Sự kiện sẽ được JS gắn vào -->
+              </ul>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

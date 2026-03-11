@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GXT — Tài xế xe Container</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700;900&display=swap');
+    body { background:#020617; color:white; font-family:Inter,system-ui; margin:0; height:100vh; overflow:hidden; }
+    .font-tech{font-family:Orbitron,system-ui;}
+    .chip{border:1px solid rgba(148,163,184,.25); background:rgba(15,23,42,.8); padding:.35rem .6rem; border-radius:999px; font-size:11px;}
+    .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;max-width:96vw;width:420px}
+    .toast-card{background:rgba(15,23,42,.92);border:1px solid rgba(59,130,246,.35);box-shadow:0 10px 30px rgba(0,0,0,.45);border-radius:16px;padding:12px 12px}
+    .map-wrap{position:relative;border-radius:18px;overflow:hidden;border:1px solid rgba(51,65,85,.8);background:radial-gradient(1000px 450px at 20% 10%, rgba(59,130,246,.15), transparent), #020617;}
+    .zone{position:absolute;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-family:Orbitron;color:#93c5fd;border:2px solid #3b82f6;background:rgba(2,6,23,.7);}
+    .zone.active{background:#22c55e;border-color:white;color:white;box-shadow:0 0 25px rgba(34,197,94,.55);transform:translate(-50%,-50%) scale(1.15);}
+    .dot-me{position:absolute;width:16px;height:16px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 0 14px rgba(239,68,68,.7);transform:translate(-50%,-50%);}
+    .dot-target{position:absolute;width:16px;height:16px;border-radius:50%;background:#22c55e;border:2px solid white;box-shadow:0 0 14px rgba(34,197,94,.7);transform:translate(-50%,-50%);}
+    .bottom-bar{position:fixed;left:0;right:0;bottom:0;background:rgba(2,6,23,.92);border-top:1px solid rgba(51,65,85,.8);padding:12px 14px;z-index:50}
+    .slider{position:relative;background:rgba(148,163,184,.18);border:1px solid rgba(148,163,184,.25);height:54px;border-radius:999px;overflow:hidden}
+    .slider .knob{position:absolute;left:6px;top:6px;width:42px;height:42px;border-radius:999px;background:#3b82f6;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;cursor:pointer;user-select:none}
+    .slider .label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;letter-spacing:.08em;color:#e2e8f0;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="toast hidden" id="toast">
+    <div class="toast-card">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-400/30 flex items-center justify-center">
+          <i class="fas fa-bell text-blue-300"></i>
+        </div>
+        <div class="flex-1">
+          <div class="font-tech text-[11px] text-blue-300 tracking-widest">GXT • THÔNG BÁO</div>
+          <div class="font-bold text-[14px] mt-1" id="toastTitle">Đang chờ PIMS...</div>
+          <div class="text-slate-300 text-[12px] mt-1 leading-snug" id="toastDesc">Khi điều độ hoàn thành trên PIMS, hệ thống sẽ hiện nút xác nhận.</div>
+          <div class="mt-3 flex gap-2" id="toastActions"></div>
+        </div>
+        <button class="text-slate-400 hover:text-white" onclick="hideToast()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <header class="px-4 py-3 border-b border-slate-800 bg-slate-950/60 backdrop-blur">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-400/25 flex items-center justify-center">
+          <i class="fas fa-truck text-blue-300"></i>
+        </div>
+        <div>
+          <div class="font-tech tracking-widest text-[11px] text-blue-300">GXT</div>
+          <div class="font-black text-[15px] leading-tight">HẠ / LẤY CONTAINER — TÀI XẾ XE CONTAINER</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="chip" id="rtStatus">Realtime: OFF</span>
+        <button class="chip" onclick="configServer()">Cấu hình Server</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="h-[calc(100vh-66px)] overflow-auto pb-28">
+    <!-- Onboarding -->
+    <section class="max-w-3xl mx-auto px-4 py-4" id="onboarding">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="font-tech text-[11px] text-slate-300 tracking-widest">B1 • ONBOARDING</div>
+            <div class="text-[15px] font-black mt-1">Đăng ký thông tin tài xế (bắt buộc)</div>
+            <div class="text-[12px] text-slate-400 mt-1">Điền 1 lần, hệ thống tự nhớ cho lần sau.</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center"><i class="fas fa-id-card"></i></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+          <div>
+            <label class="text-[11px] text-slate-400 font-bold">Họ tên tài xế</label>
+            <input id="driverName" class="mt-1 w-full bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-3 font-bold outline-none" placeholder="VD: Nguyễn Văn A" />
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 font-bold">Hotline</label>
+            <input id="hotline" class="mt-1 w-full bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-3 font-bold outline-none" placeholder="VD: 0909xxxxxx" />
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 font-bold">Biển số xe</label>
+            <input id="plate" class="mt-1 w-full bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-3 font-bold outline-none uppercase" placeholder="VD: 51H-12345" />
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 font-bold">Đơn vị vận chuyển</label>
+            <input id="company" class="mt-1 w-full bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-3 font-bold outline-none" placeholder="VD: GXT Logistics" />
+          </div>
+        </div>
+
+        <div class="mt-4 flex items-center gap-2">
+          <button class="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-black w-full md:w-auto" onclick="saveProfile()">
+            Lưu & Tiếp tục
+          </button>
+          <button class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-black w-full md:w-auto" onclick="loadProfile(true)">
+            Tải lại thông tin đã lưu
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Job + Map -->
+    <section class="max-w-3xl mx-auto px-4 pb-4 hidden" id="jobPanel">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="font-tech text-[11px] text-slate-300 tracking-widest" id="stepLabel">B2 • ĐANG KIỂM TRA SEAL</div>
+            <div class="text-[15px] font-black mt-1" id="jobTitle">Chờ điều độ hoàn thành trên PIMS...</div>
+            <div class="text-[12px] text-slate-400 mt-1" id="jobSub">Khi hoàn thành, hệ thống sẽ hiện thông tin & nút xác nhận.</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-400/25 flex items-center justify-center" id="stepIcon">
+            <i class="fas fa-shield-alt text-amber-300"></i>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mt-4 text-[12px]">
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">BIỂN SỐ</div>
+            <div class="font-black text-[14px]" id="jobPlate">—</div>
+          </div>
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">SEAL</div>
+            <div class="font-black text-[14px]" id="jobSeal">—</div>
+          </div>
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">ĐƠN VỊ</div>
+            <div class="font-bold" id="jobCompany">—</div>
+          </div>
+          <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+            <div class="text-slate-400 text-[10px] font-bold">HOTLINE</div>
+            <div class="font-bold" id="jobHotline">—</div>
+          </div>
+        </div>
+
+        <div class="mt-4 hidden" id="confirmWrap">
+          <button class="w-full px-4 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-black" onclick="confirmJob()">
+            XÁC NHẬN
+          </button>
+        </div>
+
+        <div class="mt-4 hidden" id="mapWrap">
+          <div class="map-wrap h-[360px] w-full" id="map">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full pointer-events-none">
+              <path id="routeLine" d="" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4" style="filter:drop-shadow(0 0 6px rgba(251,191,36,.7))"></path>
+            </svg>
+            <div id="zones"></div>
+            <div class="dot-me" id="meDot" style="left:10%;top:80%"></div>
+            <div class="dot-target hidden" id="targetDot" style="left:80%;top:25%"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <button class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-black" onclick="pingLocation()">
+              <i class="fas fa-location-arrow mr-2"></i>Định vị
+            </button>
+            <button class="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-black" id="arrivedBtn" onclick="markArrived()">
+              ĐÃ ĐẾN
+            </button>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-2">
+            Lưu ý: nút <b>ĐÃ ĐẾN</b> dùng khi xe đã tới vị trí hạ container.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ERP + Checkout -->
+    <section class="max-w-3xl mx-auto px-4 pb-10 hidden" id="checkoutPanel">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="font-tech text-[11px] text-slate-300 tracking-widest">B6 • CHECK OUT</div>
+            <div class="text-[15px] font-black mt-1">Phiếu ERP</div>
+            <div class="text-[12px] text-slate-400 mt-1">Kéo để hoàn tất check out.</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/25 flex items-center justify-center">
+            <i class="fas fa-receipt text-emerald-300"></i>
+          </div>
+        </div>
+
+        <div class="mt-4 bg-white text-slate-900 rounded-2xl p-4">
+          <div class="font-black text-[14px]">ERP TICKET</div>
+          <div class="text-[11px] opacity-70">Generated</div>
+          <div class="grid grid-cols-2 gap-2 mt-3 text-[12px]">
+            <div><div class="opacity-60 text-[10px] font-bold">PLATE</div><div class="font-black" id="erpPlate">—</div></div>
+            <div><div class="opacity-60 text-[10px] font-bold">ZONE</div><div class="font-black" id="erpZone">—</div></div>
+            <div><div class="opacity-60 text-[10px] font-bold">SEAL</div><div class="font-black" id="erpSeal">—</div></div>
+            <div><div class="opacity-60 text-[10px] font-bold">DRIVER</div><div class="font-black" id="erpDriver">—</div></div>
+          </div>
+        </div>
+
+        <div class="mt-4 slider" id="slider">
+          <div class="label">KÉO ĐỂ CHECK OUT</div>
+          <div class="knob" id="knob"><i class="fas fa-arrow-right"></i></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="bottom-bar">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-3 text-[12px]">
+      <div class="flex items-center gap-2">
+        <span class="chip" id="stateChip">STATE: WAITING</span>
+        <span class="chip" id="plateChip">PLATE: —</span>
+      </div>
+      <button class="chip" onclick="resetAll()">Reset</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { connectRealtime, getServerUrl, setServerUrl } from './shared/realtime-client.js';
+
+    const ZONES = {
+      A: {x:18,y:20}, B:{x:30,y:44}, C:{x:52,y:40}, D:{x:70,y:78}, E:{x:84,y:28},
+      F: {x:20,y:62}, G:{x:32,y:64}, H:{x:28,y:86}, I:{x:66,y:56}, J:{x:80,y:56},
+      K: {x:10,y:72}, S:{x:30,y:34}, T:{x:54,y:26}, U:{x:88,y:44}
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const profileKey = 'gxt_profile_v1';
+    let rt = null;
+    let job = null; // {plate, driver, contID, targetZone, seals, ...}
+    let pimsDone = null; // {seals, targetZone, ...}
+    let confirmed = false;
+    let arrived = false;
+    let gntDone = false;
+    let finished = false;
+
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'vi-VN'; u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    }
+
+    function showToast({title, desc, actions = []}) {
+      $('toastTitle').textContent = title;
+      $('toastDesc').textContent = desc;
+      const wrap = $('toastActions');
+      wrap.innerHTML = '';
+      actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = a.kind === 'primary'
+          ? 'px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-black text-[12px]'
+          : 'px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 font-black text-[12px]';
+        btn.textContent = a.label;
+        btn.onclick = a.onClick;
+        wrap.appendChild(btn);
+      });
+      $('toast').classList.remove('hidden');
+    }
+    window.hideToast = () => $('toast').classList.add('hidden');
+
+    function setStateChip(s) {
+      $('stateChip').textContent = 'STATE: ' + s;
+    }
+
+    function configServer() {
+      const cur = getServerUrl();
+      const url = prompt('Nhập URL realtime server (VD: https://your-server.com)', cur || '');
+      if (!url) return;
+      setServerUrl(url.trim().replace(/\/$/, ''));
+      location.reload();
+    }
+    window.configServer = configServer;
+
+    function saveProfile() {
+      const profile = {
+        driverName: $('driverName').value.trim(),
+        hotline: $('hotline').value.trim(),
+        plate: $('plate').value.trim().toUpperCase(),
+        company: $('company').value.trim()
+      };
+      if (!profile.driverName || !profile.hotline || !profile.plate || !profile.company) {
+        alert('Vui lòng điền đủ thông tin.');
+        return;
+      }
+      localStorage.setItem(profileKey, JSON.stringify(profile));
+      bindPlate(profile.plate);
+      $('onboarding').classList.add('hidden');
+      $('jobPanel').classList.remove('hidden');
+      setStateChip('WAIT_PIMS');
+      showToast({ title: 'Đã lưu onboarding', desc: 'Đang chờ điều độ hoàn thành kiểm tra seal trên PIMS.' });
+    }
+    window.saveProfile = saveProfile;
+
+    function loadProfile(force = false) {
+      const raw = localStorage.getItem(profileKey);
+      if (!raw) {
+        if (force) alert('Chưa có thông tin đã lưu.');
+        return;
+      }
+      try {
+        const p = JSON.parse(raw);
+        $('driverName').value = p.driverName || '';
+        $('hotline').value = p.hotline || '';
+        $('plate').value = p.plate || '';
+        $('company').value = p.company || '';
+      } catch {}
+    }
+    window.loadProfile = loadProfile;
+
+    function bindPlate(plate) {
+      $('plateChip').textContent = 'PLATE: ' + plate;
+      if (rt) rt.close();
+      rt = connectRealtime({
+        app: 'GXT',
+        plate,
+        onStatus: (s) => {
+          $('rtStatus').textContent = 'Realtime: ' + (s.status || 'OFF');
+          $('rtStatus').style.borderColor = (s.status === 'CONNECTED') ? 'rgba(34,197,94,.55)' : 'rgba(148,163,184,.25)';
+        },
+        onEvent: (ev) => handleEvent(ev)
+      });
+    }
+
+    function handleEvent(ev) {
+      if (!ev || !ev.type) return;
+      if (ev.type === 'SYNC') {
+        // server sync contains job/state if available (we mostly rely on EVENTs)
+        return;
+      }
+      if (ev.type === 'JOB_CREATED' && ev.job) {
+        job = ev.job;
+        renderJob();
+        setStateChip('CHECKING_SEAL');
+        $('stepLabel').textContent = 'B2 • ĐANG KIỂM TRA SEAL';
+        $('jobTitle').textContent = 'Đang kiểm tra seal container...';
+        $('jobSub').textContent = 'Chờ điều độ hoàn thành trên PIMS.';
+        showToast({ title: 'Đã nhận lệnh từ PIMS', desc: `Xe ${job.plate} chuẩn bị xử lý. Đợi PIMS hoàn thành seal.` });
+        speak('Đã nhận lệnh từ điều độ. Vui lòng chờ hoàn thành kiểm tra seal.');
+      }
+      if (ev.type === 'PIMS_DONE') {
+        pimsDone = ev;
+        renderJob();
+        $('stepLabel').textContent = 'B3 • ĐÃ HOÀN THÀNH (PIMS)';
+        $('jobTitle').textContent = 'Đã hoàn thành kiểm tra seal';
+        $('jobSub').textContent = 'Vui lòng kiểm tra thông tin và bấm XÁC NHẬN.';
+        $('confirmWrap').classList.remove('hidden');
+        setStateChip('WAIT_CONFIRM');
+        showToast({
+          title: 'PIMS đã hoàn thành',
+          desc: 'Kiểm tra thông tin và xác nhận để mở bản đồ dẫn đường.',
+          actions: [{ label: 'Xác nhận', kind: 'primary', onClick: () => confirmJob() }]
+        });
+        speak('Điều độ đã hoàn thành kiểm tra seal. Vui lòng xác nhận.');
+      }
+      if (ev.type === 'GNT_DONE') {
+        gntDone = true;
+        if (arrived && !finished) {
+          showFinishButton();
+        }
+      }
+    }
+
+    function renderJob() {
+      const profile = safeProfile();
+      $('jobPlate').textContent = profile?.plate || job?.plate || '—';
+      $('jobCompany').textContent = profile?.company || '—';
+      $('jobHotline').textContent = profile?.hotline || '—';
+      const seal = pimsDone?.seals || (job?.seals ? job.seals.join('-') : null);
+      $('jobSeal').textContent = seal || '—';
+    }
+
+    function safeProfile() {
+      try { return JSON.parse(localStorage.getItem(profileKey) || 'null'); } catch { return null; }
+    }
+
+    async function confirmJob() {
+      if (!job && !safeProfile()?.plate) {
+        alert('Chưa có job.');
+        return;
+      }
+      confirmed = true;
+      $('confirmWrap').classList.add('hidden');
+      $('mapWrap').classList.remove('hidden');
+      setStateChip('NAVIGATING');
+      $('stepLabel').textContent = 'B4 • BẢN ĐỒ DẪN ĐƯỜNG';
+      $('jobTitle').textContent = 'Đi theo tuyến đường đến vị trí hạ container';
+      $('jobSub').textContent = 'Bấm ĐÃ ĐẾN khi tới vị trí.';
+
+      const plate = safeProfile().plate;
+      const targetZone = pimsDone?.targetZone || job?.targetZone || 'A';
+
+      rt?.publish({
+        type: 'GXT_CONFIRMED',
+        plate,
+        targetZone,
+        seals: pimsDone?.seals || null
+      }).catch(() => {});
+
+      buildZones(targetZone);
+      setTarget(targetZone);
+      pingLocation();
+      speak(`Xác nhận thành công. Di chuyển đến khu ${targetZone}.`);
+    }
+    window.confirmJob = confirmJob;
+
+    function buildZones(activeId) {
+      const wrap = $('zones');
+      wrap.innerHTML = '';
+      Object.entries(ZONES).forEach(([id, p]) => {
+        const d = document.createElement('div');
+        d.className = 'zone' + (id === activeId ? ' active' : '');
+        d.style.left = p.x + '%';
+        d.style.top = p.y + '%';
+        d.textContent = id;
+        wrap.appendChild(d);
+      });
+    }
+
+    function setTarget(zoneId) {
+      const p = ZONES[zoneId] || ZONES.A;
+      $('targetDot').classList.remove('hidden');
+      $('targetDot').style.left = p.x + '%';
+      $('targetDot').style.top = p.y + '%';
+      drawRoute();
+      $('erpZone').textContent = 'KHU ' + zoneId;
+    }
+
+    function setMe(xPct, yPct) {
+      $('meDot').style.left = xPct + '%';
+      $('meDot').style.top = yPct + '%';
+      drawRoute();
+    }
+
+    function drawRoute() {
+      const me = $('meDot').getBoundingClientRect();
+      const tg = $('targetDot').getBoundingClientRect();
+      const map = $('map').getBoundingClientRect();
+      const x1 = ((me.left + me.width/2) - map.left) / map.width * 100;
+      const y1 = ((me.top + me.height/2) - map.top) / map.height * 100;
+      const x2 = ((tg.left + tg.width/2) - map.left) / map.width * 100;
+      const y2 = ((tg.top + tg.height/2) - map.top) / map.height * 100;
+      $('routeLine').setAttribute('d', `M ${x1},${y1} L ${x2},${y2}`);
+    }
+
+    function pingLocation() {
+      if (!navigator.geolocation) {
+        showToast({ title: 'Thiết bị không hỗ trợ GPS', desc: 'Bạn vẫn có thể dùng bản đồ minh hoạ.' });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          // Map is schematic; project lat/lng into pseudo coords for visuals.
+          const { latitude, longitude } = pos.coords;
+          const x = 10 + (Math.abs(longitude) % 1) * 80;
+          const y = 10 + (Math.abs(latitude) % 1) * 80;
+          setMe(x, y);
+        },
+        () => showToast({ title: 'Không lấy được vị trí', desc: 'Bật Location và thử lại.' }),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+    window.pingLocation = pingLocation;
+
+    async function markArrived() {
+      if (!confirmed) return;
+      arrived = true;
+      setStateChip('ARRIVED_WAIT_GNT');
+      $('arrivedBtn').disabled = true;
+      $('arrivedBtn').classList.add('opacity-50');
+      $('arrivedBtn').textContent = 'ĐÃ ĐẾN ✓';
+      speak('Đã đến vị trí. Chờ xe gấp hoàn thành.');
+
+      const plate = safeProfile().plate;
+      const targetZone = pimsDone?.targetZone || job?.targetZone || 'A';
+      rt?.publish({ type: 'GXT_ARRIVED', plate, targetZone }).catch(() => {});
+
+      showToast({
+        title: 'Đã đến vị trí',
+        desc: 'Nút KẾT THÚC sẽ xuất hiện sau khi xe gấp (GNT) nhấn hoàn thành.'
+      });
+      if (gntDone && !finished) showFinishButton();
+    }
+    window.markArrived = markArrived;
+
+    function showFinishButton() {
+      $('stepLabel').textContent = 'B5 • KẾT THÚC';
+      $('jobTitle').textContent = 'Xe gấp đã hoàn thành. Bạn có thể kết thúc.';
+      $('jobSub').textContent = 'Bấm KẾT THÚC để đi đến cổng check out.';
+      const actions = $('toastActions');
+      showToast({
+        title: 'Có thể KẾT THÚC',
+        desc: 'Xe gấp đã hoàn thành. Bấm KẾT THÚC để qua check out.',
+        actions: [{ label: 'KẾT THÚC', kind: 'primary', onClick: () => finishJob() }]
+      });
+    }
+
+    async function finishJob() {
+      if (finished) return;
+      finished = true;
+      setStateChip('FINISHING');
+      hideToast();
+
+      const profile = safeProfile();
+      const plate = profile.plate;
+      rt?.publish({ type: 'GXT_FINISH', plate }).catch(() => {});
+
+      $('checkoutPanel').classList.remove('hidden');
+      $('erpPlate').textContent = plate;
+      $('erpSeal').textContent = pimsDone?.seals || (job?.seals ? job.seals.join('-') : '—');
+      $('erpDriver').textContent = profile.driverName;
+
+      // simple voice guide
+      speak('Di chuyển đến cổng check out. Kéo để hoàn tất check out.');
+    }
+
+    function resetAll() {
+      localStorage.removeItem(profileKey);
+      location.reload();
+    }
+    window.resetAll = resetAll;
+
+    // Checkout slider
+    const knob = $('knob');
+    const slider = $('slider');
+    let dragging = false;
+    let startX = 0;
+    let knobX = 6;
+    const maxX = () => slider.clientWidth - 6 - knob.clientWidth;
+
+    function setKnob(x) {
+      knobX = Math.max(6, Math.min(x, maxX()));
+      knob.style.left = knobX + 'px';
+    }
+
+    function finishCheckout() {
+      const profile = safeProfile();
+      if (!profile?.plate) return;
+      rt?.publish({ type: 'GXT_CHECKOUT', plate: profile.plate }).catch(() => {});
+      setStateChip('CHECKOUT_DONE');
+      showToast({ title: 'Check out thành công', desc: 'Đã hoàn tất quy trình. Cảm ơn.' });
+      speak('Check out thành công.');
+    }
+
+    knob.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      startX = e.clientX;
+      knob.setPointerCapture(e.pointerId);
+    });
+    knob.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      setKnob(6 + dx);
+    });
+    knob.addEventListener('pointerup', (e) => {
+      dragging = false;
+      knob.releasePointerCapture(e.pointerId);
+      if (knobX >= maxX() - 4) {
+        setKnob(maxX());
+        finishCheckout();
+      } else {
+        setKnob(6);
+      }
+    });
+
+    // Boot
+    loadProfile(false);
+    const p = safeProfile();
+    if (p?.plate) {
+      $('onboarding').classList.add('hidden');
+      $('jobPanel').classList.remove('hidden');
+      $('driverName').value = p.driverName || '';
+      $('hotline').value = p.hotline || '';
+      $('plate').value = p.plate || '';
+      $('company').value = p.company || '';
+      bindPlate(p.plate);
+      setStateChip('WAIT_PIMS');
+      showToast({ title: 'Đang chờ PIMS', desc: 'Khi điều độ hoàn thành, hệ thống sẽ hiện thông tin.' });
+    } else {
+      setStateChip('ONBOARDING');
+    }
+
+  </script>
+</body>
+</html>
+

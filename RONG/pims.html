@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PIMS 13V2 PRO — PORT INTEGRATED MANAGEMENT SYSTEM</title>
+<script>
+(function(){const w=console.warn;console.warn=function(...a){if(typeof a[0]==='string'&&a[0].includes('cdn.tailwindcss.com'))return;w.apply(console,a);};})();
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700;900&display=swap');
+* { box-sizing: border-box; }
+body { background: #020617; color: white; font-family: 'Inter', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.font-tech { font-family: 'Orbitron', sans-serif; }
+
+/* CAMERA MODAL — mở camera trực tiếp khi click quét / ô container / ô seal */
+#camera-modal { position: fixed; inset: 0; z-index: 99998; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; }
+#camera-modal.show { display: flex; }
+#camera-modal video { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 12px; background: #000; transform: scaleX(-1); }
+#camera-modal .cam-actions { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
+#camera-modal .cam-btn { padding: 12px 24px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; border: none; display: flex; align-items: center; gap: 8px; }
+#camera-modal .cam-capture { background: #22c55e; color: white; }
+#camera-modal .cam-cancel { background: #334155; color: #e2e8f0; }
+#camera-modal .cam-status { margin-top: 8px; font-size: 12px; color: #94a3b8; }
+#camera-modal .cam-title { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-family: 'Orbitron', sans-serif; font-size: 11px; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px; }
+#camera-modal .cam-wrap { position: relative; }
+
+/* CAMERA ENV BANNER */
+#cam-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 99999; padding: 10px 20px; display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 700; transform: translateY(-100%); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+#cam-banner.show { transform: translateY(0); }
+#cam-banner.warn  { background: #7c2d12; border-bottom: 2px solid #f97316; }
+#cam-banner.error { background: #450a0a; border-bottom: 2px solid #ef4444; }
+#cam-banner.ok    { background: #052e16; border-bottom: 2px solid #22c55e; }
+.cam-banner-text { flex: 1; }
+.cam-banner-text b { display: block; font-size: 11px; }
+.cam-banner-text small { opacity: 0.7; font-size: 10px; font-weight: 400; }
+.cam-banner-code { background: rgba(0,0,0,0.4); padding: 3px 10px; border-radius: 4px; font-family: monospace; font-size: 11px; cursor: pointer; border: 1px solid rgba(255,255,255,0.15); white-space: nowrap; }
+.cam-banner-close { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+
+.monitor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; flex-grow: 1; height: 62vh; min-height: 0; }
+.monitor-wrapper { position: relative; background: #000; border-radius: 16px; border: 1px solid #1e293b; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); }
+.full-vision-img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; display: block; }
+.interaction-layer { position: absolute; inset: 0; z-index: 50; cursor: crosshair; }
+svg.nav-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; }
+.nav-line { fill: none; stroke: #fbbf24; stroke-width: 2; stroke-dasharray: 4; animation: dash 1.5s linear infinite; stroke-linecap: round; filter: drop-shadow(0 0 5px #fbbf24); }
+@keyframes dash { to { stroke-dashoffset: -20; } }
+.zone-label { position: absolute; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 900; color: #3b82f6; background: rgba(2,6,23,0.85); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 2px solid #3b82f6; transform: translate(-50%,-50%); transition: 0.2s; z-index: 60; cursor: pointer; pointer-events: auto; }
+.zone-label.active { background: #22c55e !important; color: white !important; border-color: white; box-shadow: 0 0 20px #22c55e; transform: translate(-50%,-50%) scale(1.2); }
+.truck-marker { position: absolute; width: 18px; height: 18px; background: #ef4444; border: 2px solid white; border-radius: 50%; transform: translate(-50%,-50%); z-index: 70; box-shadow: 0 0 10px #ef4444; pointer-events: none; animation: tpulse 1s infinite; }
+@keyframes tpulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.15)} }
+#ai-log-container { position: absolute; bottom: 10px; right: 10px; width: 250px; max-height: 120px; background: rgba(15,23,42,0.95); border-left: 3px solid #3b82f6; padding: 8px; font-family: monospace; font-size: 10px; z-index: 100; overflow: hidden; display: flex; flex-direction: column-reverse; pointer-events: none; border-radius: 0 8px 8px 0; }
+.log-line { color: #94a3b8; margin-bottom: 2px; animation: slideIn 0.3s ease-out; border-bottom: 1px solid rgba(255,255,255,0.05); }
+@keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
+
+.dispatch-bar { background: #050e1f; border-top: 1px solid #0f2040; padding: 4px 20px; display: flex; align-items: center; gap: 10px; font-family: 'Orbitron', sans-serif; font-size: 9px; letter-spacing: 1px; flex-shrink: 0; }
+.dispatch-tag { padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; display: flex; align-items: center; gap: 5px; }
+.tag-gxt { background: rgba(0,207,255,0.1); border: 1px solid rgba(0,207,255,0.35); color: #00cfff; }
+.tag-gnt { background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.35); color: #ff6b35; }
+.sig-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; transition: 0.3s; }
+.dot-idle { background: #1e3a5f; }
+.dot-sending { background: #fbbf24; animation: blinkFast 0.35s infinite; box-shadow: 0 0 8px #fbbf24; }
+.dot-ok { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+@keyframes blinkFast { 0%,100%{opacity:1} 50%{opacity:0.1} }
+#lastDispatch { color: #1e3a5f; font-size: 9px; flex: 1; text-align: right; font-family: monospace; }
+#lastDispatch span { color: #475569; }
+
+.form-panel { background: #0f172a; border-top: 2px solid #1e293b; padding: 10px 20px; flex-shrink: 0; }
+.field-group { background: #1e293b; padding: 6px 10px; border-radius: 10px; border: 1px solid #334155; transition: 0.2s; cursor: pointer; position: relative; }
+.active-scan { border-color: #3b82f6 !important; background: #1e294b !important; box-shadow: 0 0 12px rgba(59,130,246,0.4); }
+.active-scan::after { content: 'AI FOCUS'; position: absolute; top: -8px; right: 8px; background: #3b82f6; color: white; font-size: 7px; padding: 2px 5px; border-radius: 4px; font-weight: 900; }
+.field-label { font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px; display: block; }
+.smart-input { width: 100%; background: transparent; border: none; font-weight: 700; font-size: 13px; color: white; outline: none; }
+.btn-scan-main { background: white; color: #020617; padding: 10px; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 900; font-size: 12px; cursor: pointer; transition: 0.3s; margin-top: 5px; clip-path: polygon(5% 0%,100% 0%,95% 100%,0% 100%); }
+.btn-pims { width: 100%; padding: 10px; font-weight: 800; text-transform: uppercase; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; transition: 0.2s; border: none; cursor: pointer; }
+.btn-orange { background: #f97316; color: white; }
+.btn-green  { background: #16a34a; color: white; }
+.btn-gray   { background: #1e293b; color: #64748b; border: 1px solid #334155; opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+.scanning-bar { position: absolute; width: 100%; height: 2px; background: #3b82f6; top: 0; left: 0; animation: move 2s infinite; display: none; z-index: 110; box-shadow: 0 0 10px #3b82f6; }
+@keyframes move { 0%{top:0} 100%{top:100%} }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<!-- MODAL CAMERA — mở khi click ô container / ô seal / nút quét -->
+<div id="camera-modal">
+    <div class="cam-wrap">
+        <p class="cam-title" id="cam-modal-title">Quét Container</p>
+        <video id="camera-video" autoplay playsinline muted></video>
+        <canvas id="camera-canvas" style="display:none"></canvas>
+    </div>
+    <div class="cam-actions">
+        <button type="button" class="cam-btn cam-capture" id="cam-btn-capture"><i class="fas fa-camera"></i> Chụp để quét</button>
+        <button type="button" class="cam-btn cam-cancel" id="cam-btn-cancel"><i class="fas fa-times"></i> Đóng</button>
+    </div>
+    <p class="cam-status" id="cam-modal-status">Đang mở camera...</p>
+</div>
+
+<!-- CAMERA ENV BANNER -->
+<div id="cam-banner">
+    <div style="font-size:18px;flex-shrink:0;" id="cam-icon">📷</div>
+    <div class="cam-banner-text"><b id="cam-title">Kiểm tra môi trường...</b><small id="cam-desc"></small></div>
+    <span class="cam-banner-code" id="cam-cmd" onclick="copyEnvCmd()" style="display:none;"></span>
+    <button class="cam-banner-close" onclick="document.getElementById('cam-banner').classList.remove('show')">✕</button>
+</div>
+
+<div class="monitor-grid">
+    <div class="monitor-wrapper" id="m1">
+        <div class="scanning-bar" id="bar1"></div>
+        <input type="file" id="f1" class="hidden" onchange="preview(this,1)">
+        <div id="v1" class="w-full h-full flex items-center justify-center cursor-pointer relative" onclick="triggerUpload(1)">
+            <div class="text-slate-700 font-tech text-[10px] text-center"><i class="fas fa-video mb-2 block text-2xl"></i>VISION_CAM_01</div>
+        </div>
+        <svg class="nav-layer" viewBox="0 0 100 100" preserveAspectRatio="none"><path id="path1" class="nav-line"/></svg>
+    </div>
+    <div class="monitor-wrapper" id="m2">
+        <div class="scanning-bar" id="bar2"></div>
+        <input type="file" id="f2" class="hidden" onchange="preview(this,2)">
+        <div id="v2" class="w-full h-full flex items-center justify-center cursor-pointer relative" onclick="triggerUpload(2)">
+            <div class="text-slate-700 font-tech text-[10px] text-center"><i class="fas fa-video mb-2 block text-2xl"></i>VISION_CAM_02</div>
+        </div>
+        <svg class="nav-layer" viewBox="0 0 100 100" preserveAspectRatio="none"><path id="path2" class="nav-line"/></svg>
+    </div>
+    <div class="monitor-wrapper" id="m3">
+        <div id="ai-log-container"></div>
+        <div class="scanning-bar" id="bar3"></div>
+        <input type="file" id="f3" class="hidden" onchange="preview(this,3)">
+        <div id="v3" class="w-full h-full flex items-center justify-center cursor-pointer relative" onclick="triggerUpload(3)">
+            <div class="text-slate-700 font-tech text-[10px] text-center"><i class="fas fa-video mb-2 block text-2xl"></i>VISION_CAM_03</div>
+        </div>
+        <svg class="nav-layer" viewBox="0 0 100 100" preserveAspectRatio="none"><path id="path3" class="nav-line"/></svg>
+    </div>
+</div>
+
+<div class="dispatch-bar">
+    <span style="color:#1e3a5f;font-weight:700;font-size:9px;white-space:nowrap;">PHÁT LỆNH:</span>
+    <div class="dispatch-tag tag-gxt"><div class="sig-dot dot-idle" id="dotGXT"></div>GXT</div>
+    <div class="dispatch-tag tag-gnt"><div class="sig-dot dot-idle" id="dotGNT"></div>GNT</div>
+    <div style="width:1px;height:14px;background:#0f2040;margin:0 4px;"></div>
+    <div id="lastDispatch">— chưa có lệnh —</div>
+    <div style="width:1px;height:14px;background:#0f2040;margin:0 4px;"></div>
+    <button onclick="configRealtime()" style="padding:2px 8px;border-radius:6px;border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.8);color:#e2e8f0;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;">
+      SERVER
+    </button>
+</div>
+
+<div class="form-panel">
+    <div class="max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 gap-2">
+            <div class="field-group"><span class="field-label">Mã chuyến</span><input id="maChuyen" type="text" value="CO0002395" class="smart-input uppercase"></div>
+            <div class="field-group"><span class="field-label">Số xe / Moóc</span><input id="soXe" type="text" value="" placeholder="VD: 51H-12345" class="smart-input uppercase"></div>
+            <div class="field-group"><span class="field-label">Trọng lượng (T)</span><input id="weight" type="number" value="28.5" class="smart-input"></div>
+            <div class="field-group"><span class="field-label">Bill / Booking</span><input id="billID" type="text" placeholder="..." class="smart-input uppercase"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+            <div id="group-contID" class="field-group col-span-2" onclick="onContainerFieldClick()">
+                <span class="field-label">Số hiệu Container (ISO AI) — click để mở camera quét</span>
+                <input id="contID" type="text" placeholder="CHỜ QUÉT..." maxlength="10" class="smart-input uppercase text-blue-400" readonly onclick="onContainerFieldClick()">
+            </div>
+            <div class="field-group"><span class="field-label">Loại Cont</span><select id="loaiCont" class="smart-input" style="background:transparent"><option>40HC</option><option>20DC</option></select></div>
+            <div class="field-group"><span class="field-label">Vị trí đích</span><input id="targetZone" type="text" readonly placeholder="CHỌN TRÊN ẢNH" class="smart-input text-orange-400"></div>
+        </div>
+        <div class="flex flex-col">
+            <div class="grid grid-cols-3 gap-2" style="flex:1">
+                <div id="group-seal1" class="field-group" onclick="onSealFieldClick('seal1')"><span class="field-label">Seal 1 — click mở camera</span><input id="seal1" type="text" class="smart-input text-[11px] uppercase" readonly onclick="onSealFieldClick('seal1')"></div>
+                <div id="group-seal2" class="field-group" onclick="onSealFieldClick('seal2')"><span class="field-label">Seal 2 — click mở camera</span><input id="seal2" type="text" class="smart-input text-[11px] uppercase" readonly onclick="onSealFieldClick('seal2')"></div>
+                <div id="group-seal3" class="field-group" onclick="onSealFieldClick('seal3')"><span class="field-label">Seal 3 — click mở camera</span><input id="seal3" type="text" class="smart-input text-[11px] uppercase" readonly onclick="onSealFieldClick('seal3')"></div>
+            </div>
+            <div class="btn-scan-main" onclick="triggerScan()">
+                <i class="fas fa-camera"></i><span id="scanBtnText">MỞ CAMERA QUÉT</span>
+            </div>
+        </div>
+        <div class="flex flex-col gap-2">
+            <div class="field-group">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="field-label" style="margin-bottom:0">Tài xế</span>
+                    <div id="driverStatus"><span class="status-dot" style="background:#475569;"></span><span style="font-size:9px;font-weight:700">OFFLINE</span></div>
+                </div>
+                <input id="driverName" type="text" placeholder="Nhập tên..." oninput="updateDriverStatus()" class="smart-input text-sm">
+            </div>
+            <button id="btnUnload" onclick="startWork()" class="btn-pims btn-orange">1. XÁC NHẬN HẠ <i class="fas fa-truck-loading"></i></button>
+            <button id="btnDone" disabled onclick="finishWork()" class="btn-pims btn-gray">2. HOÀN THÀNH & IN EIR <i class="fas fa-print"></i></button>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="scanInput" accept="image/*" capture="environment" class="hidden" onchange="processScanFromFile(this)">
+
+<script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmyhFA76VM3YxdBV2USCnSdt47SW38AoCoKxxZ05BgXr-gkZZkT4eLT5CDZ0qLjqc/exec";
+const BEEP_SRC = "data:audio/wav;base64,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";
+
+// Realtime server config (shared with GXT/GNT)
+function getRealtimeBase() {
+  return (localStorage.getItem('rt_server_url') || '').trim().replace(/\/$/, '');
+}
+function configRealtime() {
+  var cur = getRealtimeBase();
+  var url = prompt('Nhập URL realtime server (VD: https://your-server.com)', cur || '');
+  if (!url) return;
+  localStorage.setItem('rt_server_url', url.trim().replace(/\/$/, ''));
+  addLog('REALTIME URL OK', 'success');
+}
+function publishRealtime(event) {
+  var base = getRealtimeBase();
+  if (!base) return Promise.resolve(false);
+  return fetch(base + '/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event)
+  }).then(function(){ return true; }).catch(function(){ return false; });
+}
+
+let activeField = 'contID';
+let state = { truck: null, target: null, targetCam: null };
+let workStarted = false;
+let cameraStream = null;
+
+const zoneMaps = {
+    1: [{id:'A',x:46,y:15},{id:'B',x:42,y:40},{id:'C',x:68,y:38},{id:'D',x:75,y:75},{id:'E',x:88,y:30}],
+    2: [{id:'K',x:3,y:60},{id:'F',x:12,y:52},{id:'G',x:25,y:58},{id:'H',x:18,y:88},{id:'I',x:70,y:48},{id:'J',x:80,y:48}],
+    3: [{id:'S',x:25,y:35},{id:'T',x:55,y:25},{id:'U',x:95,y:44}]
+};
+
+function addLog(msg, type='info') {
+    const c = document.getElementById('ai-log-container');
+    const t = new Date().toLocaleTimeString('vi-VN',{hour12:false});
+    const col = {success:'#22c55e',error:'#ef4444',dispatch:'#00cfff',info:'#3b82f6',warn:'#fbbf24'}[type]||'#94a3b8';
+    const d = document.createElement('div');
+    d.className='log-line';
+    d.innerHTML='<span style="color:'+col+'">['+t+'] › '+msg+'</span>';
+    c.prepend(d);
+    while(c.children.length>20) c.removeChild(c.lastChild);
+}
+
+function onContainerFieldClick() {
+    setActive('contID');
+    openCameraModal();
+}
+
+function onSealFieldClick(sealId) {
+    setActive(sealId);
+    openCameraModal();
+}
+
+function openCameraModal() {
+    var modal = document.getElementById('camera-modal');
+    var video = document.getElementById('camera-video');
+    var statusEl = document.getElementById('cam-modal-status');
+    var titleEl = document.getElementById('cam-modal-title');
+    var captureBtn = document.getElementById('cam-btn-capture');
+
+    var label = activeField === 'contID' ? 'Container' : activeField.toUpperCase();
+    titleEl.textContent = 'Quét ' + label;
+    statusEl.textContent = 'Đang mở camera...';
+    captureBtn.disabled = true;
+    modal.classList.add('show');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        statusEl.textContent = 'Trình duyệt không hỗ trợ camera. Dùng chọn ảnh.';
+        addLog('Không hỗ trợ camera → mở chọn ảnh', 'warn');
+        document.getElementById('scanInput').click();
+        modal.classList.remove('show');
+        return;
+    }
+
+    var constraints = {
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(function(stream) {
+            cameraStream = stream;
+            video.srcObject = stream;
+            video.onloadedmetadata = function() {
+                video.play().then(function() {
+                    statusEl.textContent = 'Hướng máy vào mã ' + label + ', rồi bấm "Chụp để quét".';
+                    captureBtn.disabled = false;
+                }).catch(function() { statusEl.textContent = 'Không phát được video.'; });
+            };
+        })
+        .catch(function(err) {
+            statusEl.textContent = 'Không mở được camera. Dùng chọn ảnh.';
+            addLog('Camera lỗi → chọn ảnh', 'warn');
+            document.getElementById('scanInput').click();
+            modal.classList.remove('show');
+        });
+}
+
+function closeCameraModal() {
+    var modal = document.getElementById('camera-modal');
+    var video = document.getElementById('camera-video');
+    modal.classList.remove('show');
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(function(t) { t.stop(); });
+        cameraStream = null;
+    }
+    video.srcObject = null;
+}
+
+function captureAndScan() {
+    var video = document.getElementById('camera-video');
+    var canvas = document.getElementById('camera-canvas');
+    var statusEl = document.getElementById('cam-modal-status');
+    var captureBtn = document.getElementById('cam-btn-capture');
+
+    if (!video.videoWidth || !video.videoHeight) {
+        statusEl.textContent = 'Chưa có hình từ camera.';
+        return;
+    }
+
+    captureBtn.disabled = true;
+    statusEl.textContent = 'Đang nhận dạng...';
+
+    var w = video.videoWidth, h = video.videoHeight;
+    canvas.width = 1200;
+    canvas.height = Math.round(1200 * h / w);
+    var ctx = canvas.getContext('2d');
+    ctx.filter = 'contrast(1.6) grayscale(1) brightness(1.1)';
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(function(blob) {
+        if (!blob) {
+            statusEl.textContent = 'Lỗi tạo ảnh.';
+            captureBtn.disabled = false;
+            return;
+        }
+        var file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+        processScanFile(file).then(function() {
+            closeCameraModal();
+            new Audio(BEEP_SRC).play().catch(function(){});
+        }).catch(function() {
+            statusEl.textContent = 'Quét lại hoặc thử chọn ảnh.';
+        }).finally(function() {
+            captureBtn.disabled = false;
+        });
+    }, 'image/jpeg', 0.85);
+}
+
+document.getElementById('cam-btn-capture').onclick = captureAndScan;
+document.getElementById('cam-btn-cancel').onclick = closeCameraModal;
+
+function triggerScan() {
+    openCameraModal();
+}
+
+function processScanFromFile(input) {
+    if (!input.files || !input.files[0]) return;
+    processScanFile(input.files[0]).then(function() {
+        new Audio(BEEP_SRC).play().catch(function(){});
+    });
+    input.value = '';
+}
+
+function processScanFile(file) {
+    addLog('AI PHÂN TÍCH ' + activeField.toUpperCase() + '...');
+    document.querySelectorAll('.scanning-bar').forEach(function(b) { b.style.display = 'block'; });
+    return createImageBitmap(file).then(function(bitmap) {
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        var scale = 1200 / bitmap.width;
+        canvas.width = 1200;
+        canvas.height = Math.round(bitmap.height * scale);
+        ctx.filter = 'contrast(1.6) grayscale(1) brightness(1.1)';
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.85);
+    }).then(function(dataUrl) {
+        return Tesseract.recognize(dataUrl, 'eng');
+    }).then(function(result) {
+        var raw = result.data.text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (activeField === 'contID') {
+            var m = raw.match(/[A-Z]{4}\d{6}/);
+            if (m) {
+                document.getElementById('contID').value = m[0];
+                addLog('CONT OK: ' + m[0], 'success');
+                document.getElementById('loaiCont').value = (m[0].charAt(4) === '2') ? '20DC' : '40HC';
+                setActive('seal1');
+            } else {
+                var fb = raw.match(/[A-Z0-9]{7,10}/);
+                if (fb) {
+                    document.getElementById('contID').value = fb[0].slice(0, 10);
+                    addLog('CONT (fallback): ' + fb[0].slice(0, 10), 'warn');
+                    setActive('seal1');
+                } else { addLog('LỖI ĐỊNH DẠNG CONT', 'error'); }
+            }
+        } else if (activeField === 'soXe') {
+            var m = raw.match(/\d{2}[A-Z]{1,2}\d{4,6}/);
+            if (m) {
+                var p = m[0];
+                var charsEnd = (p.match(/^(\d{2}[A-Z]{1,2})/) || [])[1];
+                charsEnd = charsEnd ? charsEnd.length : 2;
+                document.getElementById('soXe').value = p.slice(0, charsEnd) + '-' + p.slice(charsEnd);
+                addLog('LPR OK', 'success');
+            } else {
+                var fb = raw.match(/[A-Z0-9]{5,12}/);
+                if (fb) { document.getElementById('soXe').value = fb[0]; addLog('LPR (fallback)', 'warn'); }
+                else { addLog('KHÔNG ĐỌC ĐƯỢC BIỂN SỐ', 'error'); }
+            }
+        } else if (activeField.indexOf('seal') === 0) {
+            var m = raw.match(/[A-Z0-9]{4,15}/);
+            if (m) {
+                document.getElementById(activeField).value = m[0];
+                addLog(activeField.toUpperCase() + ' OK: ' + m[0], 'success');
+                if (activeField === 'seal1') setActive('seal2');
+                else if (activeField === 'seal2') setActive('seal3');
+            } else { addLog('KHÔNG ĐỌC ĐƯỢC SEAL', 'error'); }
+        }
+    }).catch(function(e) {
+        addLog('AI OCR LỖI', 'error');
+        console.error(e);
+    }).finally(function() {
+        document.querySelectorAll('.scanning-bar').forEach(function(b) { b.style.display = 'none'; });
+    });
+}
+
+function triggerUpload(n) { document.getElementById('f'+n).click(); }
+
+function preview(input, n) {
+    if(!input.files||!input.files[0]) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var cont = document.getElementById('v'+n);
+        cont.innerHTML = '<div class="relative w-full h-full flex items-center justify-center overflow-hidden"><img id="img'+n+'" src="'+e.target.result+'" class="full-vision-img"><div id="layer'+n+'" class="interaction-layer"></div></div>';
+        var img = document.getElementById('img'+n);
+        img.onload = function() {
+            var layer = document.getElementById('layer'+n);
+            layer.style.width = img.clientWidth+'px';
+            layer.style.height = img.clientHeight+'px';
+            layer.style.left = img.offsetLeft+'px';
+            layer.style.top = img.offsetTop+'px';
+            layer.onclick = function(ev) { setTruck(n, ev); };
+            zoneMaps[n].forEach(function(z) {
+                var d = document.createElement('div');
+                d.className = 'zone-label';
+                d.style.left = z.x+'%'; d.style.top = z.y+'%';
+                d.innerText = z.id;
+                d.onclick = function(ev) { ev.stopPropagation(); setTarget(z, n, d); };
+                layer.appendChild(d);
+            });
+            addLog('CAM 0'+n+' ONLINE', 'success');
+        };
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function setTruck(n, e) {
+    var layer = document.getElementById('layer'+n);
+    var rect = layer.getBoundingClientRect();
+    var x = e.clientX - rect.left, y = e.clientY - rect.top;
+    document.querySelectorAll('.truck-marker').forEach(function(m){ m.remove(); });
+    var t = document.createElement('div');
+    t.className = 'truck-marker'; t.style.left = x+'px'; t.style.top = y+'px';
+    layer.appendChild(t);
+    state.truck = { n: n, x: (x/rect.width)*100, y: (y/rect.height)*100 };
+    addLog('XE VỊ TRÍ CAM 0'+n);
+    if (state.target) drawPath();
+}
+
+function setTarget(zone, n, el) {
+    document.querySelectorAll('.zone-label').forEach(function(l){ l.classList.remove('active'); });
+    el.classList.add('active');
+    state.target = zone; state.targetCam = n;
+    document.getElementById('targetZone').value = 'KHU ' + zone.id;
+    addLog('ĐÍCH: KHU ' + zone.id, 'success');
+    if (state.truck) drawPath();
+}
+
+function drawPath() {
+    document.querySelectorAll('.nav-line').forEach(function(p){ p.setAttribute('d',''); });
+    var s = state.truck.n, e = state.targetCam;
+    document.getElementById('path'+s).setAttribute('d', 'M '+state.truck.x+','+state.truck.y+' L 100,50');
+    for (var i = s+1; i < e; i++) document.getElementById('path'+i).setAttribute('d', 'M 0,50 L 100,50');
+    var pe = document.getElementById('path'+e);
+    if (s === e) pe.setAttribute('d', 'M '+state.truck.x+','+state.truck.y+' L '+state.target.x+','+state.target.y);
+    else pe.setAttribute('d', 'M 0,50 L '+state.target.x+','+state.target.y);
+}
+
+function setActive(id) {
+    activeField = id;
+    document.querySelectorAll('.field-group').forEach(function(el){ el.classList.remove('active-scan'); });
+    var el = document.getElementById('group-'+id);
+    if (el) el.classList.add('active-scan');
+    var label = id === 'contID' ? 'CONTAINER' : id.toUpperCase();
+    document.getElementById('scanBtnText').innerText = 'MỞ CAMERA QUÉT ' + label;
+}
+
+function updateDriverStatus() {
+    var name = document.getElementById('driverName').value;
+    document.getElementById('driverStatus').innerHTML = name.length > 2
+        ? '<span class="status-dot" style="background:#22c55e;"></span><span style="font-size:9px;color:#22c55e;font-weight:700">ONLINE</span>'
+        : '<span class="status-dot" style="background:#475569;"></span><span style="font-size:9px;font-weight:700">OFFLINE</span>';
+}
+
+function startWork() {
+    if(!state.truck||!state.target) return alert('VUI LÒNG CHỌN XE VÀ ĐÍCH TRÊN VISION CAM!');
+    var plate = document.getElementById('soXe').value.trim().toUpperCase();
+    var driver = document.getElementById('driverName').value.trim();
+    var contID = document.getElementById('contID').value.trim().toUpperCase();
+    var target = state.target.id;
+    var seals = [document.getElementById('seal1').value, document.getElementById('seal2').value, document.getElementById('seal3').value].filter(function(x){ return x; });
+    if(!driver) return alert('VUI LÒNG NHẬP TÊN TÀI XẾ!');
+    workStarted = true;
+    var baseJob = { plate: plate, driver: driver, contID: contID, targetZone: target, seals: seals, createdAt: Date.now() };
+    localStorage.setItem('pims_job_for_gxt', JSON.stringify(Object.assign({}, baseJob, { role: 'TRUCK' })));
+    localStorage.setItem('pims_job_for_gnt', JSON.stringify(Object.assign({}, baseJob, { role: 'YARD_TRUCK' })));
+    // Realtime publish (cross-device)
+    publishRealtime({ type: 'JOB_CREATED', plate: plate, job: baseJob });
+    setDispatchDot('GXT','sending'); setDispatchDot('GNT','sending');
+    setTimeout(function(){ setDispatchDot('GXT','ok'); addLog('GXT ✓ NHẬN JOB','success'); }, 500);
+    setTimeout(function(){ setDispatchDot('GNT','ok'); addLog('GNT ✓ NHẬN JOB','success'); }, 800);
+    document.getElementById('btnUnload').disabled = true;
+    document.getElementById('btnUnload').className = 'btn-pims btn-gray';
+    document.getElementById('btnDone').disabled = false;
+    document.getElementById('btnDone').className = 'btn-pims btn-green';
+    addLog('PHÁT LỆNH → ' + (plate||'(chưa có)') + ' → KHU ' + target, 'dispatch');
+    new Audio(BEEP_SRC).play().catch(function(){});
+    speak('Tài xế ' + driver + ', di chuyển đến khu vực ' + target + ' để hạ hàng.');
+}
+
+function finishWork() {
+    if(!workStarted) return;
+    var plate = document.getElementById('soXe').value.trim().toUpperCase();
+    var driver = document.getElementById('driverName').value.trim();
+    var id = document.getElementById('contID').value.trim().toUpperCase();
+    var target = state.target ? state.target.id : 'A';
+    var s = [document.getElementById('seal1').value, document.getElementById('seal2').value, document.getElementById('seal3').value].filter(function(x){ return x; }).join('-') || 'NO-SEAL';
+    var maChuyen = document.getElementById('maChuyen').value.trim();
+    document.getElementById('btnDone').disabled = true;
+    document.getElementById('btnDone').innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> ĐANG PHÁT...';
+    var donePayload = { plate: plate, driver: driver, contID: id, seals: s, targetZone: target, finishedAt: Date.now() };
+    localStorage.setItem('pims_done_for_gxt', JSON.stringify(donePayload));
+    localStorage.setItem('pims_done_for_gnt', JSON.stringify(donePayload));
+    // Realtime publish (cross-device)
+    publishRealtime({ type: 'PIMS_DONE', plate: plate, ...donePayload });
+    setDispatchDot('GXT','sending'); setDispatchDot('GNT','sending');
+    addLog('DONE SIGNAL → GXT + GNT', 'dispatch');
+    setTimeout(function(){ setDispatchDot('GXT','ok'); }, 500);
+    setTimeout(function(){ setDispatchDot('GNT','ok'); }, 800);
+    var t = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+    document.getElementById('lastDispatch').innerHTML = '<span>'+t+'</span> · '+plate+' · KHU '+target+' · '+(id||'—')+' · '+s;
+    var url = APPS_SCRIPT_URL+'?action=init&plate='+encodeURIComponent(plate)+'&contID='+encodeURIComponent(id)+'&target=Khu '+encodeURIComponent(target)+'&driver='+encodeURIComponent(driver)+'&seal='+encodeURIComponent(s)+'&status=INIT';
+    fetch(url, { mode: 'no-cors' }).then(function(){ addLog('☁ CLOUD SYNC OK','success'); }).catch(function(){ addLog('☁ CLOUD OFFLINE','warn'); });
+    new Audio(BEEP_SRC).play().catch(function(){});
+    speak('Hoàn thành kiểm tra seal. Đã phát lệnh hạ container khu ' + target + '.');
+    setTimeout(function(){ printEIR({ plate: plate, id: id, driver: driver, s: s, target: target, maChuyen: maChuyen }); }, 600);
+    setTimeout(function(){ setDispatchDot('GXT','idle'); setDispatchDot('GNT','idle'); resetForm(); }, 4000);
+}
+
+function printEIR(o) {
+    var now = new Date().toLocaleString('vi-VN');
+    var qr = 'https://api.qrserver.com/v1/create-qr-code/?size=130x130&data='+encodeURIComponent('PIMS|'+o.plate+'|'+o.id+'|KHU '+o.target+'|'+o.s+'|'+now);
+    var w = window.open('', '_blank');
+    if(!w){ addLog('IN: BẬT POP-UP ĐỂ IN', 'warn'); return; }
+    w.document.write('<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;padding:20px;background:#fff}.ticket{border:2px solid #000;padding:18px;width:360px;margin:auto;border-radius:8px}.header{text-align:center;border-bottom:2px dashed #000;margin-bottom:12px;padding-bottom:10px}.header h3{font-size:16px;font-weight:900}.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:13px}.val{font-weight:900}.qr{text-align:center;margin-top:14px;padding-top:14px;border-top:1px dashed #ccc}.status{background:#22c55e;color:white;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:900;margin-top:8px;display:inline-block}</style></head><body><div class="ticket"><div class="header"><h3>PHIẾU HẠ BÃI (EIR)</h3><p style="font-size:9px;color:#666">'+now+'</p></div><div class="row"><span>BIỂN SỐ</span><span class="val">'+(o.plate||'—')+'</span></div><div class="row"><span>MÃ CHUYẾN</span><span class="val">'+(o.maChuyen||'—')+'</span></div><div class="row"><span>CONTAINER</span><span class="val">'+(o.id||'—')+'</span></div><div class="row"><span>SEAL</span><span class="val">'+o.s+'</span></div><div class="row"><span>KHU HẠ</span><span class="val" style="color:#ef4444">KHU '+o.target+'</span></div><div class="row"><span>TÀI XẾ</span><span class="val">'+(o.driver||'—')+'</span></div><div class="qr"><img src="'+qr+'" width="120"><br><span class="status">✓ AI VERIFIED</span></div></div><script>window.onload=function(){setTimeout(function(){window.print();window.close();},600)}<\/script></body></html>');
+}
+
+function resetForm() {
+    workStarted = false;
+    ['maChuyen','soXe','weight','contID','seal1','seal2','seal3','driverName','targetZone','billID'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!el) return;
+        if(el.tagName === 'INPUT') el.value = (id === 'maChuyen' ? 'CO0002395' : id === 'weight' ? '28.5' : '');
+    });
+    state = { truck: null, target: null, targetCam: null };
+    document.querySelectorAll('.zone-label').forEach(function(l){ l.classList.remove('active'); });
+    document.querySelectorAll('.truck-marker').forEach(function(m){ m.remove(); });
+    document.querySelectorAll('.nav-line').forEach(function(p){ p.setAttribute('d',''); });
+    setActive('contID');
+    document.getElementById('btnUnload').disabled = false;
+    document.getElementById('btnUnload').className = 'btn-pims btn-orange';
+    document.getElementById('btnUnload').innerHTML = '1. XÁC NHẬN HẠ <i class="fas fa-truck-loading"></i>';
+    document.getElementById('btnDone').disabled = true;
+    document.getElementById('btnDone').className = 'btn-pims btn-gray';
+    document.getElementById('btnDone').innerHTML = '2. HOÀN THÀNH & IN EIR <i class="fas fa-print"></i>';
+    updateDriverStatus();
+    addLog('RESET · SẴN SÀNG XE MỚI', 'info');
+}
+
+function setDispatchDot(sys, st) {
+    var d = document.getElementById('dot'+sys);
+    if(!d) return;
+    d.className = 'sig-dot ' + (st === 'sending' ? 'dot-sending' : st === 'ok' ? 'dot-ok' : 'dot-idle');
+}
+
+function speak(text) {
+    if(!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'vi-VN'; u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+}
+
+window.addEventListener('storage', function(e) {
+    if(e.key === 'gxt_checkout_done' && e.newValue) { try{ var d = JSON.parse(e.newValue); addLog('✓ GXT CHECK OUT: ' + d.plate, 'success'); }catch(x){} }
+    if(e.key === 'gnt_done_for_truck' && e.newValue) { try{ var d = JSON.parse(e.newValue); addLog('✓ GNT XONG: ' + d.plate, 'success'); }catch(x){} }
+});
+
+function checkCameraEnv() {
+    var isFile = location.protocol === 'file:';
+    var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    var isHTTPS = location.protocol === 'https:';
+    var b = document.getElementById('cam-banner');
+    if(isFile){
+        b.className = 'show error';
+        document.getElementById('cam-icon').textContent = '🚫';
+        document.getElementById('cam-title').textContent = 'Camera bị chặn — đang mở file:// trực tiếp';
+        document.getElementById('cam-desc').textContent = 'Chạy lệnh bên cạnh → mở http://localhost:8000';
+        var cmd = document.getElementById('cam-cmd'); cmd.style.display = 'block'; cmd.textContent = 'python -m http.server 8000';
+        window._envCmd = 'python -m http.server 8000';
+        addLog('⚠ FILE:// MODE — OCR & CAMERA HẠN CHẾ', 'error');
+    } else if(isLocal || isHTTPS){
+        b.className = 'show ok';
+        document.getElementById('cam-icon').textContent = '✅';
+        document.getElementById('cam-title').textContent = isLocal ? 'Localhost — Camera & OCR sẵn sàng' : 'HTTPS — Camera & OCR sẵn sàng';
+        document.getElementById('cam-desc').textContent = 'Tất cả tính năng AI hoạt động đầy đủ.';
+        setTimeout(function(){ b.classList.remove('show'); }, 3500);
+        addLog('CAM ENV: OK', 'success');
+    } else {
+        b.className = 'show warn';
+        document.getElementById('cam-icon').textContent = '⚠️';
+        document.getElementById('cam-title').textContent = 'HTTP — Camera có thể bị giới hạn';
+        document.getElementById('cam-desc').textContent = 'Dùng localhost hoặc HTTPS để camera hoạt động ổn định.';
+        addLog('⚠ HTTP MODE', 'warn');
+    }
+    b.classList.add('show');
+}
+function copyEnvCmd() {
+    var cmd = window._envCmd || 'python -m http.server 8000';
+    navigator.clipboard.writeText(cmd).then(function(){
+        document.getElementById('cam-cmd').textContent = '✓ ĐÃ COPY!';
+        setTimeout(function(){ document.getElementById('cam-cmd').textContent = cmd; }, 2000);
+    }).catch(function(){ prompt('Copy:', cmd); });
+}
+checkCameraEnv();
+</script>
+</body>
+</html>
